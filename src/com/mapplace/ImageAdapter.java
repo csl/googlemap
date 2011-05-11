@@ -3,6 +3,7 @@ package com.mapplace;
 import java.io.BufferedReader;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,6 +11,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
@@ -162,6 +164,148 @@ public class ImageAdapter extends BaseAdapter
 	  is.close();
 	  return bytes;
 	  }
+	
+	public void upload(String URLs, String nPATH)
+	{
+
+	  List<String> list  = new ArrayList<String>();  //要上傳的文件名,如：d:\haha.doc.你要實現自己的業務。我這裡就是一個空list.
+
+	  try {
+
+	  String BOUNDARY = "---------7d4a6d158c9";
+	  URL url = new URL(URLs);
+	  HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+	  conn.setInstanceFollowRedirects(true);
+
+	  conn.setDoOutput(true);
+	  conn.setDoInput(true);
+	  conn.setUseCaches(false);
+	  conn.setRequestMethod("POST");
+	  conn.setRequestProperty("connection", "Keep-Alive");
+	  conn.setRequestProperty("user-agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)");
+	  conn.setRequestProperty("Charsert", "UTF-8");
+	  conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + BOUNDARY);
+	  OutputStream out = new DataOutputStream(conn.getOutputStream());
+	  byte[] end_data = ("\r\n--" + BOUNDARY + "--\r\n").getBytes();
+
+	  File file = new File(nPATH);
+	  StringBuilder sb = new StringBuilder();
+	  sb.append("--");
+	  sb.append(BOUNDARY);
+	  sb.append("\r\n");
+	  sb.append("Content-Disposition: form-data;name=\"theUploadFile"+"\";filename=\""+ file.getName() + "\"\r\n");
+	  sb.append("Content-Type:application/octet-stream\r\n\r\n");
+	  byte[] data = sb.toString().getBytes();
+	  prm.openOptionsDialog(sb.toString());
+	  out.write(data);
+
+	  DataInputStream in = new DataInputStream(new FileInputStream(file));
+	  int bytes = 0;
+	  byte[] bufferOut = new byte[1024];
+	  
+	  while ((bytes = in.read(bufferOut)) != -1) {
+	    out.write(bufferOut, 0, bytes);
+	  }
+
+	  in.close();
+	  out.write(end_data);
+	  out.flush();
+	  out.close();
+
+    int responseCode = conn.getResponseCode();
+    if (responseCode == 200) 
+    {
+      // 定義BufferedReader輸入流來讀取URL的響應
+      BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+      String line = null;
+
+      while ((line = reader.readLine()) != null) {
+        prm.openOptionsDialog(line);
+      }
+    }
+    else
+    {
+      prm.openOptionsDialog(Integer.toString(responseCode));
+      prm.openOptionsDialog(conn.getHeaderField("location"));      
+    }
+	  
+	  
+
+	  } catch (Exception e) {
+
+	    prm.openOptionsDialog("發送POST請求出現異常！" + e);
+
+	  e.printStackTrace();
+
+	  }
+	  }
+	  
+	
+  private void uploadFile(String actionUrl, String nPATH, String nNAME)
+  {
+    String end = "\r\n";
+    String twoHyphens = "--";
+    String boundary = "*****";
+    //String boundary = "==================================";
+    try
+    {
+      URL url =new URL(actionUrl);
+      HttpURLConnection con=(HttpURLConnection)url.openConnection();
+      con.setDoInput(true);
+      con.setDoOutput(true);
+      con.setUseCaches(false);
+      con.setRequestMethod("POST");
+      /* setRequestProperty */
+      con.setRequestProperty("Connection", "Keep-Alive");
+      con.setRequestProperty("Charset", "UTF-8");
+      con.setRequestProperty("Content-Type",
+                         "multipart/form-data;boundary="+boundary);
+      DataOutputStream ds = 
+        new DataOutputStream(con.getOutputStream());
+      ds.writeBytes(twoHyphens + boundary + end);
+      ds.writeBytes("Content-Disposition: form-data; " +
+                    "name=\"theUploadFile\";filename=\"" +
+                    nNAME +"\"" + end);
+      ds.writeBytes(end);   
+
+      FileInputStream fStream = new FileInputStream(nPATH);
+      int bufferSize = 1024;
+      byte[] buffer = new byte[bufferSize];
+
+      int length = -1;
+      while((length = fStream.read(buffer)) != -1)
+      {
+        ds.write(buffer, 0, length);
+      }
+      ds.writeBytes(end);
+      ds.writeBytes(twoHyphens + boundary + twoHyphens + end);
+
+      /* close streams */
+      fStream.close();
+      ds.flush();
+      
+      int responseCode = con.getResponseCode();
+      if (responseCode == 200) 
+      {
+        InputStream is = con.getInputStream();
+        int ch;
+        StringBuffer b =new StringBuffer();
+        while( ( ch = is.read() ) != -1 )
+        {
+          b.append( (char)ch );
+        }
+        prm.openOptionsDialog(b.toString().trim());
+      }
+      else
+        prm.openOptionsDialog(Integer.toString(responseCode));      
+      
+      ds.close();
+    }
+    catch(Exception e)
+    {
+      prm.openOptionsDialog(""+e);
+    }
+  }
 
 	
 	public void put(String targetURL, File file, String newName) throws Exception {
@@ -173,7 +317,7 @@ public class ImageAdapter extends BaseAdapter
 
         // These strings are sent in the request body. They provide information about the file being uploaded
         String contentDisposition = "Content-Disposition: form-data; name=\"theUploadFile\"; filename=\"" + newName + "\"";
-        String contentType = "Content-Type: application/octet-stream";
+        //String contentType = "Content-Type: application/octet-stream";
 
         // This is the standard format for a multipart request
         StringBuffer requestBody = new StringBuffer();
@@ -182,8 +326,8 @@ public class ImageAdapter extends BaseAdapter
         requestBody.append('\n');
         requestBody.append(contentDisposition);
         requestBody.append('\n');
-        requestBody.append(contentType);
-        requestBody.append('\n');
+        //requestBody.append(contentType);
+        //requestBody.append('\n');
         requestBody.append('\n');
         requestBody.append(new String(getBytesFromFile(file)));
         requestBody.append("--");
@@ -226,8 +370,10 @@ public class ImageAdapter extends BaseAdapter
 
         is.close();
         String response = new String(bytesReceived);
+        prm.openOptionsDialog(response);
 
         // TODO: Do something here to handle the 'response' string
+        prm.openOptionsDialog("upload OK");
 
     } finally {
         if (conn != null) {
@@ -287,7 +433,9 @@ public class ImageAdapter extends BaseAdapter
 			  
 			  try
         {
-          put(strResult.trim(), new File(ImagePath), filename);
+          //prm.openOptionsDialog(strResult.trim());
+          //put(strResult.trim(), new File(ImagePath), filename);
+			    upload(strResult.trim(), ImagePath);
         } catch (Exception e)
         {
           // TODO Auto-generated catch block
